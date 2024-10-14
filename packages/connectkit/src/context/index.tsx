@@ -1,10 +1,10 @@
-import { SmartAccount, type AAOptions, type AccountContract } from '@particle-network/aa';
+import { type AAOptions, type AccountContract, SmartAccount } from '@particle-network/aa';
 import { chains } from '@particle-network/chains';
 import { walletEntryPlugin, type WalletOption } from '@particle-network/wallet';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import ConnectModal from '../components/connectModal';
 import SignModal from '../components/signModal';
-import { type BaseConnector } from '../connector/base';
+import { type BaseConnector, Chain } from '../connector/base';
 import { AASignerProvider } from '../evmSigner';
 import useModalStateValue from '../hooks/useModalStateValue';
 import type { AccountInfo } from '../types/accountInfo';
@@ -30,7 +30,15 @@ interface GlobalState {
   smartAccount?: SmartAccount;
   switchNetwork: (network: 'livenet' | 'testnet') => Promise<void>;
   getNetwork: () => Promise<'livenet' | 'testnet'>;
+  getChain(): Promise<Chain>;
+  switchChain(chain: string): Promise<void>;
   sendBitcoin: (toAddress: string, satoshis: number, options?: { feeRate: number }) => Promise<string>;
+  signPsbt: (
+    psbtB64: string,
+    signingIndexes: any,
+    succFunc: (txid: string, psbt: string) => void,
+    failFunc: (err: Error) => void
+  ) => Promise<void>;
   accountContract: AccountContract;
   setAccountContract: (accountContract: AccountContract) => void;
   getSmartAccountInfo: () => Promise<AccountInfo | undefined>;
@@ -127,8 +135,22 @@ export const ConnectProvider = ({
       if (!connector) {
         throw new Error('Wallet not connected!');
       }
-      const signature = await connector.signMessage(message);
-      return signature;
+      return await connector.signMessage(message);
+    },
+    [connector]
+  );
+
+  const signPsbt = useCallback(
+    async (
+      psbtB64: string,
+      signingIndexes: any,
+      succFunc: (txid: string, psbt: string) => void,
+      failFunc: (err: Error) => void
+    ) => {
+      if (!connector) {
+        throw new Error('Wallet not connected!');
+      }
+      await connector.signPsbt(psbtB64, signingIndexes, succFunc, failFunc);
     },
     [connector]
   );
@@ -139,8 +161,7 @@ export const ConnectProvider = ({
         throw new Error('Wallet not connected!');
       }
 
-      const signature = await connector.sendBitcoin(toAddress, satoshis, options);
-      return signature;
+      return await connector.sendBitcoin(toAddress, satoshis, options);
     },
     [connector]
   );
@@ -149,8 +170,7 @@ export const ConnectProvider = ({
     if (!connector) {
       throw new Error('Wallet not connected!');
     }
-    const network = await connector.getNetwork();
-    return network;
+    return await connector.getNetwork();
   }, [connector]);
 
   const switchNetwork = useCallback(
@@ -159,6 +179,23 @@ export const ConnectProvider = ({
         throw new Error('Wallet not connected!');
       }
       await connector.switchNetwork(network);
+    },
+    [connector]
+  );
+
+  const getChain = useCallback(async () => {
+    if (!connector) {
+      throw new Error('Wallet not connected!');
+    }
+    return await connector.getChain();
+  }, [connector]);
+
+  const switchChain = useCallback(
+    async (network: 'livenet' | 'testnet') => {
+      if (!connector) {
+        throw new Error('Wallet not connected!');
+      }
+      await connector.switchChain(network);
     },
     [connector]
   );
@@ -368,7 +405,10 @@ export const ConnectProvider = ({
         smartAccount,
         getNetwork,
         switchNetwork,
+        getChain,
+        switchChain,
         sendBitcoin,
+        signPsbt,
         accountContract: accountContract,
         setAccountContract: setAccountContract,
         getSmartAccountInfo,
@@ -382,6 +422,5 @@ export const ConnectProvider = ({
 };
 
 export const useConnectProvider = () => {
-  const context = useContext(ConnectContext);
-  return context;
+  return useContext(ConnectContext);
 };

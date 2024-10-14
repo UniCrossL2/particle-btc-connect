@@ -1,4 +1,4 @@
-import { BaseConnector } from './base';
+import { BaseConnector, Chain } from './base';
 
 export abstract class InjectedConnector extends BaseConnector {
   constructor(private propertity: string) {
@@ -77,6 +77,14 @@ export abstract class InjectedConnector extends BaseConnector {
     return this.getProviderOrThrow().switchNetwork(network);
   }
 
+  async getChain(): Promise<Chain> {
+    return this.getProviderOrThrow().getChain();
+  }
+
+  async switchChain(chain: string): Promise<void> {
+    this.getProviderOrThrow().switchChain(chain);
+  }
+
   async sendBitcoin(toAddress: string, satoshis: number, options?: { feeRate: number }): Promise<string> {
     return this.getProviderOrThrow().sendBitcoin(toAddress, satoshis, options);
   }
@@ -97,4 +105,18 @@ export abstract class InjectedConnector extends BaseConnector {
   }
 
   disconnect() {}
+
+  async signPsbt(
+    psbtB64: string,
+    signingIndexes: any,
+    succFunc: (txid: string, psbt: string) => void,
+    failFunc: (err: Error) => void
+  ): Promise<void> {
+    try {
+      const psbt = await this.getProviderOrThrow().signPsbt(psbtB64);
+      succFunc(psbt, psbt);
+    } catch (err) {
+      failFunc(err as Error);
+    }
+  }
 }

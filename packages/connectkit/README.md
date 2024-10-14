@@ -2,6 +2,9 @@
 
 First Account Abstraction Protocol on Bitcoin
 
+# npm login
+# npm publish --access public
+
 ## Learn More
 
 - [Documentation](https://docs.particle.network/developers/btc-connect)
